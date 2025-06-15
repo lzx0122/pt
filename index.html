@@ -21,7 +21,7 @@
 
       <div id="controls">
         <div>秒數:</div>
-        <div id="step">0</div>
+        <div id="sec">0</div>
         <input
           type="button"
           name=""
@@ -31,7 +31,17 @@
         />
         <input type="button" name="" id="start" class="btn" value="開始模擬" />
         <input type="checkbox" name="" id="perspective" />
+        <label for="speed">速度</label>
+        <input
+          type="number"
+          name="speed"
+          id="speed"
+          value="10"
+          max="60"
+          min="1"
+        />
       </div>
+      <div id="warning"></div>
     </div>
 
     <script type="module" src="./src/index.js"></script>

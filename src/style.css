@@ -61,6 +61,21 @@
   font-size: 3rem;
 }
 
+#speed {
+  height: 50px;
+  width: 50px;
+  font-size: 2rem;
+}
+
 #restart {
   background-color: yellowgreen;
+}
+
+#warning {
+  width: 100vw;
+  position: absolute;
+  color: #dc3545;
+  top: 150px;
+  font-size: 4rem;
+  text-align: center;
 }
