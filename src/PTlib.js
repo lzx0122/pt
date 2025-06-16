@@ -97,3 +97,27 @@ export function calcSteps({ startPoint, endPoint, speed, isRandom }) {
 
   return smoothSteps;
 }
+
+//檢查是否碰撞
+export function checkCollision(carObj, carPosition, pedPosition) {
+  const v_mps = (carObj.speed * 1000) / 3600;
+  const semiMajorAxis = v_mps * config.params.t_safety; // a = v * t_safety
+  const semiMinorAxis = (config.params.w_car + 2 * config.params.m) / 2; // b = (w_car + 2m) / 2
+
+  const dx = pedPosition.x - carPosition.x; // (x - xc)
+  const dz = pedPosition.z - carPosition.z; // (y - yc) z = y
+
+  // ( (x-xc)/a )^2 + ( (y-yc)/b )^2 <= 1
+  const ellipseEquation =
+    Math.pow(dx / semiMajorAxis, 2) + Math.pow(dz / semiMinorAxis, 2);
+
+  return ellipseEquation <= 1;
+}
+
+// 發出警示
+export function shouldWarn(timeToCollision, carSpeedKmh) {
+  const v_mps = (carSpeedKmh * 1000) / 3600;
+  const warningThreshold =
+    config.params.t_reaction + v_mps / config.params.a_brake; // t_reaction + v / a_brake
+  return timeToCollision <= warningThreshold;
+}
