@@ -54,14 +54,6 @@ let ped1 = new obj({
   entitySize: { length: 0.5, width: 0.5 },
 });
 
-let ped2 = new obj({
-  name: "行人2",
-  color: 0x013220,
-  speed: 3,
-  startPoint: { x: 5, z: -3 },
-  endPoint: { x: -5, z: 5 },
-  entitySize: { length: 0.5, width: 0.5 },
-});
 
 let car = new obj({
   name: "car",
@@ -72,7 +64,7 @@ let car = new obj({
   entitySize: { length: 3, width: 2 },
 });
 
-let peds = [ped1, ped2];
+let peds = [ped1];
 
 // 相機模式管理
 let cameraMode = "FPP";
@@ -443,7 +435,7 @@ async function preShowTrajectory() {
   if (collisions.length > 0) {
     collisions.sort((a, b) => a.collisionTime - b.collisionTime);
     const firstCollision = collisions[0];
-    text.innerHTML = `(約${firstCollision.collisionTime}秒後)最先撞到行人: ${firstCollision.pedName}`;
+    text.innerHTML = `(約${firstCollision.collisionTime}秒後)撞到行人: ${firstCollision.pedName}`;
     console.log(collisions);
     // 車輛紅色碰撞區（橢圓）
     const carMaker = firstCollision.carObj.maker;
