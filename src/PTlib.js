@@ -87,31 +87,92 @@ export function calcSteps({ startPoint, endPoint, speed, isRandom }) {
       time: step.time,
     };
   });
+  //滑化後的座標重新計算時間
+  for (let i = 1; i < smoothSteps.length; i++) {
+    const prevStep = smoothSteps[i - 1];
+    const currentStep = smoothSteps[i];
 
-  // 強制起點終點一致
-  smoothSteps[0] = { ...startPoint, time: 0 };
+    const segmentDx = currentStep.x - prevStep.x;
+    const segmentDz = currentStep.z - prevStep.z;
+    const segmentDistance = Math.sqrt(
+      segmentDx * segmentDx + segmentDz * segmentDz
+    );
+
+    const timeForSegment = segmentDistance / speedMps;
+
+    currentStep.time = prevStep.time + timeForSegment;
+  }
+
+  smoothSteps[0] = { x: startPoint.x, z: startPoint.z, time: 0 };
+  const lastStep = smoothSteps[smoothSteps.length - 1];
   smoothSteps[smoothSteps.length - 1] = {
-    ...endPoint,
-    time: totalDistance / speedMps,
+    x: endPoint.x,
+    z: endPoint.z,
+    time: lastStep.time,
   };
 
   return smoothSteps;
 }
 
 //檢查是否碰撞
-export function checkCollision(carObj, carPosition, pedPosition) {
+export function checkCollision(carObj, carPosition, pedPosition, pedSize) {
   const v_mps = (carObj.speed * 1000) / 3600;
-  const semiMajorAxis = v_mps * config.params.t_safety; // a = v * t_safety
-  const semiMinorAxis = (config.params.w_car + 2 * config.params.m) / 2; // b = (w_car + 2m) / 2
+  const semiMajorAxis = v_mps * config.params.t_safety;
+  const semiMinorAxis = (config.params.w_car + 2 * config.params.m) / 2;
 
-  const dx = pedPosition.x - carPosition.x; // (x - xc)
-  const dz = pedPosition.z - carPosition.z; // (y - yc) z = y
+  // 考慮行人的矩形範圍
+  const pedHalfLength = (pedSize?.length || 0.5) / 2;
+  const pedHalfWidth = (pedSize?.width || 0.5) / 2;
 
-  // ( (x-xc)/a )^2 + ( (y-yc)/b )^2 <= 1
+  // 計算行人矩形邊界
+  const pedMinX = pedPosition.x - pedHalfLength;
+  const pedMaxX = pedPosition.x + pedHalfLength;
+  const pedMinZ = pedPosition.z - pedHalfWidth;
+  const pedMaxZ = pedPosition.z + pedHalfWidth;
+
+  // 找到矩形上離汽車中心最近的點
+  const closestX = Math.max(pedMinX, Math.min(carPosition.x, pedMaxX));
+  const closestZ = Math.max(pedMinZ, Math.min(carPosition.z, pedMaxZ));
+
+  // 計算最近點到汽車中心的距離
+  const dx = closestX - carPosition.x;
+  const dz = closestZ - carPosition.z;
+
+  // 橢圓方程
   const ellipseEquation =
     Math.pow(dx / semiMajorAxis, 2) + Math.pow(dz / semiMinorAxis, 2);
 
   return ellipseEquation <= 1;
+}
+
+//車子和行人是否碰撞
+export function checkPhysicalCollision(
+  carPosition,
+  carSize,
+  pedPosition,
+  pedSize
+) {
+  const carHalfLength = carSize.length / 2;
+  const carHalfWidth = carSize.width / 2;
+  const carMinX = carPosition.x - carHalfLength;
+  const carMaxX = carPosition.x + carHalfLength;
+  const carMinZ = carPosition.z - carHalfWidth;
+  const carMaxZ = carPosition.z + carHalfWidth;
+
+  const pedHalfLength = pedSize.length / 2;
+  const pedHalfWidth = pedSize.width / 2;
+  const pedMinX = pedPosition.x - pedHalfLength;
+  const pedMaxX = pedPosition.x + pedHalfLength;
+  const pedMinZ = pedPosition.z - pedHalfWidth;
+  const pedMaxZ = pedPosition.z + pedHalfWidth;
+
+  const isColliding =
+    carMaxX > pedMinX &&
+    carMinX < pedMaxX &&
+    carMaxZ > pedMinZ &&
+    carMinZ < pedMaxZ;
+
+  return isColliding;
 }
 
 // 發出警示
