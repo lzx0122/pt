@@ -34,7 +34,7 @@ const Perlin = {
 Perlin.init();
 
 export function calcSteps({ startPoint, endPoint, speed, isRandom }) {
-  const distancePerStep = config.distancePerStep || 0.1; // 每 step 走的距離（例如 0.1 公尺）
+  const distancePerStep = config.distancePerStep || 0.1; // 每step走的距離0.1
   const speedMps = (speed * 1000) / 3600; // km/h 轉 m/s
 
   const dx = endPoint.x - startPoint.x;

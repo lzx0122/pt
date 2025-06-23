@@ -154,7 +154,8 @@ function drawLine(point1, point2, color = 0x178bfd) {
 
 // 動態顯示座標點
 function showTrajectory(obj, step, color = 0x00ff00) {
-  if (step > 0) drawLine(obj.steps[step - 1], obj.steps[step], color);
+  let useColor = step < 3 ? 0xffff00 : color;
+  if (step > 0) drawLine(obj.steps[step - 1], obj.steps[step], useColor);
 
   const point = obj.steps[step];
   const marker = new THREE.Object3D();
