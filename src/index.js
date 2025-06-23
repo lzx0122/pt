@@ -31,8 +31,8 @@ scene.add(gridHelper);
 
 // 建立地面參考格線（每個整數格子）
 function createFloorTiles() {
-  for (let x = -10; x <= 10; x++) {
-    for (let z = -10; z <= 10; z++) {
+  for (let x = -20; x <= 20; x++) {
+    for (let z = -20; z <= 20; z++) {
       const boxGeo = new THREE.BoxGeometry(0.95, 0.01, 0.95);
       const boxMat = new THREE.MeshBasicMaterial({ color: 0xe0e0e0 });
       const tile = new THREE.Mesh(boxGeo, boxMat);
@@ -59,8 +59,8 @@ let car = new obj({
   name: "car",
   color: 0x007bff,
   speed: carSpeed,
-  startPoint: { x: -10, z: -1 },
-  endPoint: { x: 10, z: -1 },
+  startPoint: { x: -20, z: -1 },
+  endPoint: { x: 20, z: -1 },
   entitySize: { length: 3, width: 2 },
 });
 
@@ -89,7 +89,7 @@ function setFPP() {
 
 function setTPP() {
   camera.rotation.set(0, 0, 0);
-  camera.position.set(0, 15, 0);
+  camera.position.set(0, 30, 0);
   camera.rotateY(-Math.PI / 2);
   camera.rotateX(-90 * (Math.PI / 180));
 }
