@@ -1,4 +1,7 @@
+import { exp } from "three/tsl";
 import { config } from "./config";
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
 
 const Perlin = {
   perm: new Array(512).fill(0),
@@ -138,7 +141,7 @@ export function checkCollision(carObj, carPosition, pedPosition, pedSize) {
   const dx = closestX - carPosition.x;
   const dz = closestZ - carPosition.z;
 
-  // 橢圓方程
+  // 橢圓
   const ellipseEquation =
     Math.pow(dx / semiMajorAxis, 2) + Math.pow(dz / semiMinorAxis, 2);
 
@@ -177,8 +180,40 @@ export function checkPhysicalCollision(
 
 // 發出警示
 export function shouldWarn(timeToCollision, carSpeedKmh) {
-  const v_mps = (carSpeedKmh * 1000) / 3600;
+  console.log(timeToCollision, carSpeedKmh)
+  const v_mps = (carSpeedKmh.speed * 1000) / 3600;
   const warningThreshold =
     config.params.t_reaction + v_mps / config.params.a_brake; // t_reaction + v / a_brake
   return timeToCollision <= warningThreshold;
+}
+
+export function loadModel(fileName) {
+  return new Promise((resolve, reject) => {
+    const mtlLoader = new MTLLoader();
+    mtlLoader.load(
+      '/assets/' + fileName + '.mtl',
+      (materials) => {
+        materials.preload();
+        const objLoader = new OBJLoader();
+        objLoader.setMaterials(materials);
+        objLoader.load(
+          '/assets/' + fileName + '.obj',
+          (object) => {
+
+            resolve(object);
+          },
+          null,
+          (error) => {
+
+            reject(error);
+          }
+        );
+      },
+      null,
+      (error) => {
+
+        reject(error);
+      }
+    );
+  });
 }

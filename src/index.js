@@ -1,12 +1,20 @@
 import * as THREE from "three";
+import "bootstrap/dist/css/bootstrap.min.css";
 import { obj } from "./obj.js";
 import { config } from "./config.js";
-import { checkPhysicalCollision, checkCollision, shouldWarn } from "./PTlib.js";
+import { checkPhysicalCollision, checkCollision, shouldWarn, loadModel } from "./PTlib.js";
 let text = document.querySelector("#text");
 let makerTemps = [];
 let elapsedTime = 0;
 let isPlaying = false;
 let isPlayCollision = false;
+let detailedCarModel = null
+
+// 儲存car原始路徑
+let originalCarSteps = [];
+// 煞車狀態
+let isBrakingActive = false;
+
 
 // 初始化場景
 const scene = new THREE.Scene();
@@ -33,7 +41,7 @@ scene.add(gridHelper);
 function createFloorTiles() {
   for (let x = -20; x <= 20; x++) {
     for (let z = -20; z <= 20; z++) {
-      const boxGeo = new THREE.BoxGeometry(0.95, 0.01, 0.95);
+      const boxGeo = new THREE.BoxGeometry(2, 0.01, 2);
       const boxMat = new THREE.MeshBasicMaterial({ color: 0xe0e0e0 });
       const tile = new THREE.Mesh(boxGeo, boxMat);
       tile.position.set(x, 0, z);
@@ -61,7 +69,7 @@ let car = new obj({
   speed: carSpeed,
   startPoint: { x: -20, z: -1 },
   endPoint: { x: 20, z: -1 },
-  entitySize: { length: 3, width: config.params.w_car },
+  entitySize: { length: 4.63, width: config.params.w_car },
 });
 
 let peds = [ped1];
@@ -78,7 +86,7 @@ function setFPP() {
 
 function setTPP() {
   camera.rotation.set(0, 0, 0);
-  camera.position.set(0, 30, 0);
+  camera.position.set(0, 20, 0);
   camera.rotateY(-Math.PI / 2);
   camera.rotateX(-90 * (Math.PI / 180));
 }
@@ -162,7 +170,7 @@ function getTimeByStep(step, speed, distancePerStep) {
   return (step * timePerStep).toFixed(3).toString();
 }
 
-// 設置碰撞點（橢圓碰撞範圍）
+// 設置橢圓範圍
 function setPoint(tempPoints, maker, step) {
   // 定義橢圓的中心點和半軸
   const center = {
@@ -185,15 +193,14 @@ function setPoint(tempPoints, maker, step) {
     });
   } else {
     // 檢查時間範圍內的車輛位置
-    //const timeTolerance = 0.05; // 時間容差，單位秒
+    const timeTolerance = 0.01;
     //const pedTime = parseFloat(timeKey);
     for (let [carTimeKey, carPoint] of tempPoints) {
       //const carTime = parseFloat(carTimeKey);
 
       const carTime = parseFloat(carTimeKey);
       const pedTime = parseFloat(timeKey);
-      if (Math.abs(carTime - pedTime) <= 0.05) {
-        // 縮小容差至 0.05 秒
+      if (Math.abs(carTime - pedTime) <= timeTolerance) {
         const isColliding = checkCollision(
           carPoint.carObj.maker.obj,
           carPoint.carObj.maker.position,
@@ -207,32 +214,6 @@ function setPoint(tempPoints, maker, step) {
           });
         }
       }
-      // if (Math.abs(carTime - pedTime) <= timeTolerance) {
-      //   const carCollistionScope = carPoint.carObj.collistionScope;
-      //   const pedHalfSize = maker.obj.entitySize.length / 2;
-      //   const closestX = Math.max(
-      //     center.x - pedHalfSize,
-      //     Math.min(carCollistionScope.center.x, center.x + pedHalfSize)
-      //   );
-      //   const closestZ = Math.max(
-      //     center.z - pedHalfSize,
-      //     Math.min(carCollistionScope.center.z, center.z + pedHalfSize)
-      //   );
-      //   const dx = carCollistionScope.center.x - closestX;
-      //   const dz = carCollistionScope.center.z - closestZ;
-      //   const distance = Math.sqrt(dx * dx + dz * dz);
-      //   const carEffectiveRadius = Math.max(
-      //     carCollistionScope.semiMajorAxis,
-      //     carCollistionScope.semiMinorAxis
-      //   );
-      //   if (distance <= carEffectiveRadius) {
-      //     tempPoints.get(carTimeKey).pedObjs.push({
-      //       maker,
-      //       collistionScope: { center, halfSize: pedHalfSize },
-      //       collisionTime: carTime, // 記錄精確的碰撞時間
-      //     });
-      //   }
-      // }
     }
   }
 }
@@ -242,15 +223,19 @@ let playCarTemp = null;
 
 // 播放車輛動態
 // index.js
-
 async function playCar(car) {
   playCarTemp = car;
   isPlayCollision = false;
+
+  if (originalCarSteps.length === 0) {
+    originalCarSteps = car.steps.map((step) => ({ ...step }));
+  }
+
   for (let step = 0; step < car.steps.length; step++) {
     if (!isPlaying || isPlayCollision) break;
     const carStep = car.steps[step];
 
-    // 車輛實體
+    // car實體
     const carBodyGeo = new THREE.BoxGeometry(
       car.entitySize.length,
       0.02,
@@ -262,9 +247,19 @@ async function playCar(car) {
       transparent: true,
     });
     const carBody = new THREE.Mesh(carBodyGeo, carBodyMat);
-    carBody.position.set(carStep.x, 0, carStep.z);
+    carBody.position.set(carStep.x, 0.01, carStep.z);
     carBody.name = "carBody";
     scene.add(carBody);
+
+
+    const carBodyModel = detailedCarModel.clone();
+    carBodyModel.scale.set(car.entitySize.width * 0.019, 0.05, car.entitySize.length * 0.005);
+    scene.add(carBodyModel);
+
+    carBodyModel.position.set(carStep.x, -1, carStep.z); // 設定位置
+
+    carBodyModel.lookAt(car.endPoint.x, -1, car.endPoint.z);
+
 
     // 預警橢圓
     const ellipseGeo = new THREE.CircleGeometry(1, 32);
@@ -288,10 +283,9 @@ async function playCar(car) {
     let minTtc = Infinity;
     let isInWarningZone = false;
     let finalWarningMessage = "";
-
+    let finalWarningMessageClass = "";
     playPedsTemp.forEach((ped) => {
       if (!ped.playPedBox || isPlayCollision) return;
-
       const isPhysicallyColliding = checkPhysicalCollision(
         carBody.position,
         car.entitySize,
@@ -302,6 +296,7 @@ async function playCar(car) {
       if (isPhysicallyColliding) {
         isPlayCollision = true;
         finalWarningMessage = "碰撞發生！";
+        finalWarningMessageClass = "alert-danger";
         carBody.material.color.set(0xff0000);
         makerTemps.push(carBody, ellipse, ped.playPedBox);
         return;
@@ -329,15 +324,116 @@ async function playCar(car) {
       }
     });
 
-    if (!isPlayCollision) {
-      if (isInWarningZone) {
-        finalWarningMessage = "危險：已進入預警範圍！";
-      } else if (minTtc < Infinity) {
-        finalWarningMessage = "預計 " + minTtc.toFixed(1) + " 秒後進入警告區";
+    // ---煞車---
+    // 檢查是否觸發煞車條件
+    const warningConditionMet =
+      isInWarningZone && minTtc < Infinity && shouldWarn(minTtc, car);
+
+    // 如果觸發煞車且尚未啟動煞車程序
+    if (warningConditionMet && !isBrakingActive) {
+      isBrakingActive = true;
+      finalWarningMessage = "煞車啟動！";
+      finalWarningMessageClass = "alert-danger";
+
+      // 目前狀態
+      const initialSpeed_mps = (car.speed * 1000) / 3600;
+      const reactionTime_s = config.params.t_reaction;
+      const brakeAccel_mps2 = config.params.a_brake;
+      const distancePerStep = config.distancePerStep;
+
+      // 取得車輛行駛方向
+      const nextOriginalStep = originalCarSteps[step + 1] || carStep;
+      const dx = nextOriginalStep.x - carStep.x;
+      const dz = nextOriginalStep.z - carStep.z;
+      const direction = new THREE.Vector2(dx, dz).normalize();
+
+      // 2. 清除未來路徑並準備生成新路徑
+      car.steps.splice(step + 1);
+      let lastStep = car.steps[step];
+      const newBrakingSteps = [];
+
+      // 3. 生成反應時間路徑
+      const reactionDistance = initialSpeed_mps * reactionTime_s;
+      const numReactionSteps = Math.ceil(reactionDistance / distancePerStep);
+      const timePerReactionStep =
+        reactionDistance / numReactionSteps / initialSpeed_mps;
+
+      for (let i = 0; i < numReactionSteps; i++) {
+        const newPos = {
+          x: lastStep.x + direction.x * (reactionDistance / numReactionSteps),
+          z: lastStep.z + direction.y * (reactionDistance / numReactionSteps),
+        };
+        const newStep = {
+          x: newPos.x,
+          z: newPos.z,
+          time: lastStep.time + timePerReactionStep,
+        };
+        newBrakingSteps.push(newStep);
+        lastStep = newStep;
       }
+
+      // 4. 生成減速煞車路徑
+      let currentSpeed_mps = initialSpeed_mps;
+      while (currentSpeed_mps > 0) {
+        const v_final_sq =
+          currentSpeed_mps * currentSpeed_mps -
+          2 * brakeAccel_mps2 * distancePerStep;
+        const v_final = v_final_sq > 0 ? Math.sqrt(v_final_sq) : 0;
+        const avgSpeed = (currentSpeed_mps + v_final) / 2;
+        if (avgSpeed <= 0) break;
+        const timeForStep = distancePerStep / avgSpeed;
+
+        const newPos = {
+          x: lastStep.x + direction.x * distancePerStep,
+          z: lastStep.z + direction.y * distancePerStep,
+        };
+        const newStep = {
+          x: newPos.x,
+          z: newPos.z,
+          time: lastStep.time + timeForStep,
+        };
+        newBrakingSteps.push(newStep);
+        lastStep = newStep;
+        currentSpeed_mps = v_final;
+      }
+
+      // 標記最後一個點為終點
+      if (newBrakingSteps.length > 0) {
+        newBrakingSteps[newBrakingSteps.length - 1].isFinalStop = true;
+      }
+
+      // 將新生成的煞車路徑加入到車輛步驟中
+      car.steps.push(...newBrakingSteps);
     }
 
-    document.querySelector("#warning").textContent = finalWarningMessage;
+    // 如果是煞車的最後一步，更新狀態
+    if (carStep.isFinalStop) {
+      isPlaying = false; // 停止模擬
+      finalWarningMessage = "車輛已煞停";
+      finalWarningMessageClass = "alert-success";
+    }
+    // ------
+
+
+    if (!isPlayCollision && !isBrakingActive) {
+      if (isInWarningZone) {
+        finalWarningMessage = "危險：已進入預警範圍！";
+        if (shouldWarn(minTtc, car)) {
+          finalWarningMessage = "要煞車"; // 這裡的訊息會被上面的 "煞車啟動！" 覆蓋
+        }
+      } else if (minTtc < Infinity) {
+        finalWarningMessage = "預計 " + minTtc.toFixed(1) + " 秒後進入警示區";
+      }
+      finalWarningMessageClass = "alert-warning";
+    }
+
+    if (finalWarningMessage.trim().length != 0) {
+      document.querySelector(
+        "#warning"
+      ).innerHTML = ` <div class="position-absolute top-10 start-50 translate-middle alert ${finalWarningMessageClass} centered-alert" role="alert">
+          ${finalWarningMessage}
+      </div>`;
+    }
 
     if (isPlayCollision) {
       isPlaying = false;
@@ -347,20 +443,27 @@ async function playCar(car) {
     elapsedTime = carStep.time * 1000;
     document.querySelector("#sec").innerHTML = (elapsedTime / 1000).toFixed(1);
 
-    if (step > 0) carStep.line.material.opacity = 1;
+    if (step > 0 && carStep.line) carStep.line.material.opacity = 1;
     if (cameraMode === "FPP") camera.position.set(carStep.x, 1, carStep.z);
 
     const nextStepTime =
       step + 1 < car.steps.length ? car.steps[step + 1].time * 1000 : null;
+
     if (nextStepTime) {
       const duration = nextStepTime - elapsedTime;
       await new Promise((resolve) => setTimeout(resolve, duration));
     }
 
-    if (!isPlayCollision) {
+
+
+    if (!isPlayCollision && !carStep.isFinalStop) {
       scene.remove(carBody);
       scene.remove(ellipse);
+      scene.remove(carBodyModel);
+    } else {
+      makerTemps.push(carBody, ellipse);
     }
+
   }
 }
 
@@ -398,7 +501,7 @@ async function playPed(ped, index) {
       await new Promise((resolve) => setTimeout(resolve, duration));
     }
 
-    if (!isPlayCollision) {
+    if (!isPlayCollision && isPlaying) {
       scene.remove(box);
     }
   }
@@ -409,9 +512,12 @@ async function preShowTrajectory() {
   let tempPoints = new Map();
   let collisions = [];
 
-  for (let step = 0; step < car.steps.length; step++) {
+
+  const stepsForPrediction =
+    originalCarSteps.length > 0 && !isPlaying ? originalCarSteps : car.steps;
+  for (let step = 0; step < stepsForPrediction.length; step++) {
     const marker = showTrajectory(car, step, car.color);
-    car.steps[step].maker = marker;
+    stepsForPrediction[step].maker = marker;
     setPoint(tempPoints, marker, step);
   }
 
@@ -443,37 +549,6 @@ async function preShowTrajectory() {
     if (!isCollision) {
       delete ped.collisionTime;
     }
-    // let tempPointKeys = Array.from(tempPoints.keys());
-    // tempPointKeys.sort((a, b) => {
-    //   a - b;
-    // });
-
-    // // 檢查是否有碰撞
-    // for (let timeKey of tempPointKeys) {
-    //   let collisionInfo = tempPoints.get(timeKey);
-    //   if (collisionInfo.pedObjs.length >= 1) {
-    //     let collisionTime = parseFloat(timeKey).toFixed(1);
-
-    //     ped.collisionTime = collisionTime;
-
-    //     collisionInfo.pedObjs.forEach((pedObj) => {
-    //       collisions.push({
-    //         pedName: pedObj.maker.obj.name,
-    //         collisionTime: collisionTime,
-    //         pedObj: pedObj,
-    //         carObj: collisionInfo.carObj,
-    //       });
-    //     });
-
-    //     isCollision = true;
-    //     break;
-    //   }
-    // }
-    // if (isCollision) continue;
-    // if (!isCollision) {
-    //   text.innerHTML = "";
-    //   delete ped.collisionTime;
-    // }
   }
 
   if (collisions.length > 0) {
@@ -481,31 +556,7 @@ async function preShowTrajectory() {
     const firstCollision = collisions[0];
     const timeToCollision = parseFloat(firstCollision.collisionTime);
 
-    if (shouldWarn(timeToCollision, car.speed)) {
-      text.innerHTML = `預測約 ${timeToCollision} 秒後，${firstCollision.pedName} 將進入車輛的碰撞危險區！`;
-    } else {
-      text.innerHTML = `預測到進入警示區，但超出警示時間範圍。${timeToCollision} 秒`;
-    }
-    // car紅色碰撞區
-    const carMaker = firstCollision.carObj.maker;
-    const ellipseGeo = new THREE.CircleGeometry(1, 32);
-    ellipseGeo.rotateX(-Math.PI / 2);
-    const ellipseMat = new THREE.LineBasicMaterial({
-      color: 0x800080,
-      linewidth: 2,
-      transparent: true,
-      opacity: 0.3,
-    });
-    const ellipse = new THREE.Mesh(ellipseGeo, ellipseMat);
-    const v_mps = (car.speed * 1000) / 3600;
-    ellipse.scale.set(
-      v_mps * config.params.t_safety,
-      1,
-      (config.params.w_car + 2 * config.params.m) / 2
-    );
-    ellipse.position.set(carMaker.position.x, 0.01, carMaker.position.z);
-    scene.add(ellipse);
-    makerTemps.push(ellipse);
+    text.innerHTML = `預測約 ${timeToCollision} 秒後，${firstCollision.pedName} 將進入警示區！`;
 
     // 行人碰撞區
     const collisionPed = firstCollision.pedObj;
@@ -534,10 +585,29 @@ async function preShowTrajectory() {
 
 preShowTrajectory();
 
+
+loadModel("car")
+  .then(loadedModel => {
+    detailedCarModel = loadedModel;
+    document.querySelector("#start").disabled = false;
+    console.log("車子載入成功")
+  })
+  .catch(error => {
+    console.error("載模型失敗:", error);
+  });
+
+
+
 // 播放動畫
 function play(car, peds) {
   elapsedTime = 0;
   isPlaying = true;
+  isBrakingActive = false;
+
+  if (originalCarSteps.length > 0) {
+    car.steps = originalCarSteps.map((step) => ({ ...step }));
+  }
+
   if (cameraMode === "FPP") {
     setFPP();
   } else {
@@ -592,8 +662,18 @@ document.querySelector("#perspective").addEventListener("change", (e) => {
 
 function restart() {
   isPlaying = false;
+
+  isBrakingActive = false;
+
   document.querySelector("#warning").textContent = "";
   peds.forEach((p) => (p.isWarned = false));
+
+
+  if (originalCarSteps.length > 0) {
+    car.steps = originalCarSteps.map((step) => ({ ...step }));
+  }
+
+
   clearMaker();
   preShowTrajectory();
 }
@@ -612,6 +692,9 @@ document.querySelector("#start").addEventListener("click", async () => {
 // 更改速度
 document.querySelector("#speed").addEventListener("change", (e) => {
   car.speed = parseInt(e.target.value);
+
+  originalCarSteps = [];
+
   clearMaker();
   preShowTrajectory();
 });
