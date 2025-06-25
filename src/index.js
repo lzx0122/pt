@@ -2,19 +2,23 @@ import * as THREE from "three";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { obj } from "./obj.js";
 import { config } from "./config.js";
-import { checkPhysicalCollision, checkCollision, shouldWarn, loadModel } from "./PTlib.js";
+import {
+  checkPhysicalCollision,
+  checkCollision,
+  shouldWarn,
+  loadModel,
+} from "./PTlib.js";
 let text = document.querySelector("#text");
 let makerTemps = [];
 let elapsedTime = 0;
 let isPlaying = false;
 let isPlayCollision = false;
-let detailedCarModel = null
+let detailedCarModel = null;
 
 // 儲存car原始路徑
 let originalCarSteps = [];
 // 煞車狀態
 let isBrakingActive = false;
-
 
 // 初始化場景
 const scene = new THREE.Scene();
@@ -61,6 +65,7 @@ let ped1 = new obj({
   startPoint: { x: 5, z: 2 },
   endPoint: { x: -5, z: -5 },
   entitySize: { length: 0.5, width: 0.5 },
+  modelFun: null,
 });
 
 let car = new obj({
@@ -70,6 +75,7 @@ let car = new obj({
   startPoint: { x: -20, z: -1 },
   endPoint: { x: 20, z: -1 },
   entitySize: { length: 4.63, width: config.params.w_car },
+  modelFun: loadModel("car"),
 });
 
 let peds = [ped1];
@@ -251,15 +257,18 @@ async function playCar(car) {
     carBody.name = "carBody";
     scene.add(carBody);
 
-
-    const carBodyModel = detailedCarModel.clone();
-    carBodyModel.scale.set(car.entitySize.width * 0.019, 0.05, car.entitySize.length * 0.005);
+    const carBodyModel = car.model.clone();
+    carBodyModel.scale.set(
+      car.entitySize.width * 0.019,
+      0.05,
+      car.entitySize.length * 0.005
+    );
     scene.add(carBodyModel);
 
     carBodyModel.position.set(carStep.x, -1, carStep.z); // 設定位置
 
     carBodyModel.lookAt(car.endPoint.x, -1, car.endPoint.z);
-
+    makerTemps.push(carBodyModel);
 
     // 預警橢圓
     const ellipseGeo = new THREE.CircleGeometry(1, 32);
@@ -414,7 +423,6 @@ async function playCar(car) {
     }
     // ------
 
-
     if (!isPlayCollision && !isBrakingActive) {
       if (isInWarningZone) {
         finalWarningMessage = "危險：已進入預警範圍！";
@@ -454,8 +462,6 @@ async function playCar(car) {
       await new Promise((resolve) => setTimeout(resolve, duration));
     }
 
-
-
     if (!isPlayCollision && !carStep.isFinalStop) {
       scene.remove(carBody);
       scene.remove(ellipse);
@@ -463,7 +469,6 @@ async function playCar(car) {
     } else {
       makerTemps.push(carBody, ellipse);
     }
-
   }
 }
 
@@ -511,7 +516,6 @@ async function playPed(ped, index) {
 async function preShowTrajectory() {
   let tempPoints = new Map();
   let collisions = [];
-
 
   const stepsForPrediction =
     originalCarSteps.length > 0 && !isPlaying ? originalCarSteps : car.steps;
@@ -585,19 +589,6 @@ async function preShowTrajectory() {
 
 preShowTrajectory();
 
-
-loadModel("car")
-  .then(loadedModel => {
-    detailedCarModel = loadedModel;
-    document.querySelector("#start").disabled = false;
-    console.log("車子載入成功")
-  })
-  .catch(error => {
-    console.error("載模型失敗:", error);
-  });
-
-
-
 // 播放動畫
 function play(car, peds) {
   elapsedTime = 0;
@@ -668,11 +659,9 @@ function restart() {
   document.querySelector("#warning").textContent = "";
   peds.forEach((p) => (p.isWarned = false));
 
-
   if (originalCarSteps.length > 0) {
     car.steps = originalCarSteps.map((step) => ({ ...step }));
   }
-
 
   clearMaker();
   preShowTrajectory();

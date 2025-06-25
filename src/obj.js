@@ -11,8 +11,18 @@ export class obj {
   _speed = 10;
   startPoint;
   endPoint;
+  model = null;
 
-  constructor({ name, color, steps, startPoint, endPoint, speed, entitySize }) {
+  constructor({
+    name,
+    color,
+    steps,
+    startPoint,
+    endPoint,
+    speed,
+    entitySize,
+    modelFun,
+  }) {
     this.name = name;
     this.color = color;
     this.startPoint = startPoint;
@@ -22,6 +32,13 @@ export class obj {
     this.steps =
       steps ||
       calcSteps({ startPoint, endPoint, speed, isRandom: name != "car" });
+
+    if (modelFun) {
+      modelFun.then((model) => {
+        console.log(model);
+        this.model = model;
+      });
+    }
   }
 
   setCollistionScope() {

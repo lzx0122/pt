@@ -1,7 +1,7 @@
 import { exp } from "three/tsl";
 import { config } from "./config";
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
+import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
+import { MTLLoader } from "three/examples/jsm/loaders/MTLLoader.js";
 
 const Perlin = {
   perm: new Array(512).fill(0),
@@ -180,7 +180,6 @@ export function checkPhysicalCollision(
 
 // 發出警示
 export function shouldWarn(timeToCollision, carSpeedKmh) {
-  console.log(timeToCollision, carSpeedKmh)
   const v_mps = (carSpeedKmh.speed * 1000) / 3600;
   const warningThreshold =
     config.params.t_reaction + v_mps / config.params.a_brake; // t_reaction + v / a_brake
@@ -188,30 +187,61 @@ export function shouldWarn(timeToCollision, carSpeedKmh) {
 }
 
 export function loadModel(fileName) {
+  let loading_items = document.querySelector("#loading-items");
+
+  let itemId = "loading-" + fileName;
+
+  let itemHTML = `<div
+        id="${itemId}"
+        class="d-flex justify-content-between align-items-center bg-secondary bg-opacity-50 p-2 rounded mb-2"
+      >
+        <span class="small fw-medium text-truncate me-2">${fileName}</span>
+        <div class="indicator-circle rounded-circle bg-warning" style="width: 16px; height: 16px;"></div>
+      </div>`;
+
+  // 插入到 DOM 中
+  loading_items.insertAdjacentHTML("beforeend", itemHTML);
+
   return new Promise((resolve, reject) => {
     const mtlLoader = new MTLLoader();
     mtlLoader.load(
-      '/assets/' + fileName + '.mtl',
+      "/assets/" + fileName + ".mtl",
       (materials) => {
         materials.preload();
         const objLoader = new OBJLoader();
         objLoader.setMaterials(materials);
         objLoader.load(
-          '/assets/' + fileName + '.obj',
+          "/assets/" + fileName + ".obj",
           (object) => {
+            let loadingItem = document.getElementById(itemId);
+            if (loadingItem) {
+              let indicator = loadingItem.querySelector(".indicator-circle");
+              if (indicator) {
+                indicator.classList.remove("bg-warning");
+                indicator.classList.add("bg-success");
+              }
+            }
 
+            console.log(fileName + " 加載完畢");
             resolve(object);
           },
           null,
           (error) => {
-
+            let loadingItem = document.getElementById(itemId);
+            if (loadingItem) {
+              let indicator = loadingItem.querySelector(".indicator-circle");
+              if (indicator) {
+                indicator.classList.remove("bg-warning");
+                indicator.classList.add("bg-danger");
+              }
+            }
+            console.error(error);
             reject(error);
           }
         );
       },
       null,
       (error) => {
-
         reject(error);
       }
     );
