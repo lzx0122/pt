@@ -35,43 +35,31 @@ export class obj {
 
     if (modelFun) {
       modelFun.then((model) => {
-        console.log(model);
         this.model = model;
       });
     }
   }
 
+  resetSteps() {
+    let temp = calcSteps({
+      startPoint: this.startPoint,
+      endPoint: this.endPoint,
+      speed: this.speed,
+      isRandom: this.name != "car",
+    });
+    this.steps = temp;
+  }
+
   setCollistionScope() {
-    // let expand = 0;
-    // if (this.name == "car") {
-    //   let span = 1;
-    //   if (this._speed > 50) {
-    //     expand += span * 6;
-    //   } else if (this._speed > 40) {
-    //     expand += span * 5;
-    //   } else if (this._speed > 30) {
-    //     expand += span * 4;
-    //   } else if (this._speed > 20) {
-    //     expand += span * 3;
-    //   } else if (this._speed > 10) {
-    //     expand += span * 2;
-    //   } else {
-    //     expand = 1;
-    //   }
-    // }
-
-    // this.collistionScope = {
-    //   length: this._entitySize.length + expand,
-    //   width: this._entitySize.width + expand,
-    // };
-
     if (this.name === "car") {
       const v_mps = (this._speed * 1000) / 3600;
-      const semiMajorAxis = v_mps * config.params.t_safety;
-      const semiMinorAxis = (config.params.w_car + 2 * config.params.m) / 2;
+      const t_warning =
+        config.params.t_reaction + v_mps / config.params.a_brake;
+      const semiMajorAxis = v_mps * t_warning;
+      const semiMinorAxis = config.params.w_car + 2 * config.params.m;
       this.collistionScope = {
-        length: semiMajorAxis * 2,
-        width: semiMinorAxis * 2,
+        length: semiMajorAxis,
+        width: semiMinorAxis,
       };
     } else {
       this.collistionScope = {

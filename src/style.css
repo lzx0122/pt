@@ -10,8 +10,8 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale; */
-}
+  -moz-osx-font-smoothing: grayscale; 
+}*/
 /* 
 #text {
   font-size: 2rem;
@@ -86,7 +86,7 @@
 .warning {
   position: absolute;
   right: 50vw;
-  top: 150px;
+  top: 50px;
   text-align: center;
 }
 
@@ -107,4 +107,25 @@
   left: 50%;
   transform: translate(-50%, -70%);
   /* animation: slideDown 0.4s ease-out; */
+}
+
+#speed_ui {
+  position: absolute;
+  top: 85%;
+  left: 5%;
+  font-size: 3rem;
+  width: 200px;
+  height: 100px;
+  line-height: 100px;
+  color: rgb(140, 167, 255);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.blink {
+  animation: blink 1s step-end infinite;
+}
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
 }

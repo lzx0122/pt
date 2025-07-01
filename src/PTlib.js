@@ -2,7 +2,8 @@ import { exp } from "three/tsl";
 import { config } from "./config";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { MTLLoader } from "three/examples/jsm/loaders/MTLLoader.js";
-
+import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
+let modelStatuMap = new Map();
 const Perlin = {
   perm: new Array(512).fill(0),
   grad: (hash, x) => {
@@ -34,9 +35,8 @@ const Perlin = {
   },
 };
 
-Perlin.init();
-
 export function calcSteps({ startPoint, endPoint, speed, isRandom }) {
+  Perlin.init();
   const distancePerStep = config.distancePerStep || 0.1; // 每step走的距離0.1
   const speedMps = (speed * 1000) / 3600; // km/h 轉 m/s
 
@@ -119,9 +119,8 @@ export function calcSteps({ startPoint, endPoint, speed, isRandom }) {
 
 //檢查是否碰撞
 export function checkCollision(carObj, carPosition, pedPosition, pedSize) {
-  const v_mps = (carObj.speed * 1000) / 3600;
-  const semiMajorAxis = v_mps * config.params.t_safety;
-  const semiMinorAxis = (config.params.w_car + 2 * config.params.m) / 2;
+  const semiMajorAxis = carObj.collistionScope.length / 2;
+  const semiMinorAxis = carObj.collistionScope.width / 2;
 
   // 考慮行人的矩形範圍
   const pedHalfLength = (pedSize?.length || 0.5) / 2;
@@ -141,7 +140,7 @@ export function checkCollision(carObj, carPosition, pedPosition, pedSize) {
   const dx = closestX - carPosition.x;
   const dz = closestZ - carPosition.z;
 
-  // 橢圓
+  // 橢圓方程式判斷
   const ellipseEquation =
     Math.pow(dx / semiMajorAxis, 2) + Math.pow(dz / semiMinorAxis, 2);
 
@@ -181,15 +180,27 @@ export function checkPhysicalCollision(
 // 發出警示
 export function shouldWarn(timeToCollision, carSpeedKmh) {
   const v_mps = (carSpeedKmh.speed * 1000) / 3600;
+  console.log(config.params.t_reaction + v_mps / config.params.a_brake);
   const warningThreshold =
     config.params.t_reaction + v_mps / config.params.a_brake; // t_reaction + v / a_brake
   return timeToCollision <= warningThreshold;
 }
 
-export function loadModel(fileName) {
-  let loading_items = document.querySelector("#loading-items");
+function disabledButton() {
+  document.querySelector("#start").disabled = true;
+  document.querySelector("#restart").disabled = true;
+}
 
+function enabledButton() {
+  document.querySelector("#start").disabled = false;
+  document.querySelector("#restart").disabled = false;
+}
+
+export function loadModelOBJ(fileName) {
+  let loading_items = document.querySelector("#loading-items");
   let itemId = "loading-" + fileName;
+  disabledButton();
+  modelStatuMap.set(fileName, false);
 
   let itemHTML = `<div
         id="${itemId}"
@@ -221,9 +232,21 @@ export function loadModel(fileName) {
                 indicator.classList.add("bg-success");
               }
             }
+            modelStatuMap.set(fileName, true);
 
-            console.log(fileName + " 加載完畢");
             resolve(object);
+
+            let isAllLoading = true;
+            for (let [k, v] in modelStatuMap) {
+              if (!v) {
+                isAllLoading = false;
+                break;
+              }
+            }
+
+            if (isAllLoading) {
+              enabledButton();
+            }
           },
           null,
           (error) => {
@@ -242,6 +265,69 @@ export function loadModel(fileName) {
       },
       null,
       (error) => {
+        reject(error);
+      }
+    );
+  });
+}
+
+export function loadModelFBX(fileName) {
+  let loading_items = document.querySelector("#loading-items");
+  let itemId = "loading-" + fileName;
+  disabledButton();
+  modelStatuMap.set(fileName, false);
+
+  let itemHTML = `<div
+        id="${itemId}"
+        class="d-flex justify-content-between align-items-center bg-secondary bg-opacity-50 p-2 rounded mb-2"
+      >
+        <span class="small fw-medium text-truncate me-2">${fileName}</span>
+        <div class="indicator-circle rounded-circle bg-warning" style="width: 16px; height: 16px;"></div>
+      </div>`;
+
+  // 插入到 DOM 中
+  loading_items.insertAdjacentHTML("beforeend", itemHTML);
+
+  return new Promise((resolve, reject) => {
+    const fbxLoader = new FBXLoader();
+    fbxLoader.load(
+      "/assets/" + fileName + ".fbx",
+      (object) => {
+        let loadingItem = document.getElementById(itemId);
+        if (loadingItem) {
+          let indicator = loadingItem.querySelector(".indicator-circle");
+          if (indicator) {
+            indicator.classList.remove("bg-warning");
+            indicator.classList.add("bg-success");
+          }
+        }
+        modelStatuMap.set(fileName, true);
+
+        resolve(object);
+
+        let isAllLoading = true;
+        for (let [k, v] in modelStatuMap) {
+          if (!v) {
+            isAllLoading = false;
+            break;
+          }
+        }
+
+        if (isAllLoading) {
+          enabledButton();
+        }
+      },
+      null,
+      (error) => {
+        let loadingItem = document.getElementById(itemId);
+        if (loadingItem) {
+          let indicator = loadingItem.querySelector(".indicator-circle");
+          if (indicator) {
+            indicator.classList.remove("bg-warning");
+            indicator.classList.add("bg-danger");
+          }
+        }
+        console.error(error);
         reject(error);
       }
     );
