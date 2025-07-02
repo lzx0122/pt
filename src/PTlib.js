@@ -237,7 +237,8 @@ export function loadModelOBJ(fileName) {
             resolve(object);
 
             let isAllLoading = true;
-            for (let [k, v] in modelStatuMap) {
+
+            for (let [k, v] of modelStatuMap) {
               if (!v) {
                 isAllLoading = false;
                 break;
@@ -306,7 +307,7 @@ export function loadModelFBX(fileName) {
         resolve(object);
 
         let isAllLoading = true;
-        for (let [k, v] in modelStatuMap) {
+        for (let [k, v] of modelStatuMap) {
           if (!v) {
             isAllLoading = false;
             break;

@@ -96,7 +96,7 @@ let ped1 = new obj({
   startPoint: { x: startX_panel, z: startZ_panel },
   endPoint: { x: endX_panel, z: endZ_panel },
   entitySize: { length: 0.5, width: 0.5 },
-  modelFun: loadModelOBJ("person"),
+  modelFun: null,
 });
 
 let car = new obj({
@@ -106,7 +106,7 @@ let car = new obj({
   startPoint: { x: -50, z: -1 },
   endPoint: { x: 50, z: -1 },
   entitySize: { length: 4.63, width: config.params.w_car },
-  modelFun: loadModelOBJ("car"),
+  modelFun: null,
 });
 
 let peds = [ped1];
@@ -183,9 +183,8 @@ function showTrajectory(obj, step, color = 0x00ff00, riskFactor = 0) {
   return marker;
 }
 
-// --- 修正後的 setPoint ---
-function setPoint(tempPoints, maker, step) {
-  const center = { x: maker.position.x, z: maker.position.z };
+//設置預測時間點
+function setTrajectoryMaps(tempPoints, maker, step) {
   const timeKey = maker.obj.steps[step].time.toFixed(3);
 
   if (maker.obj.name === "car") {
@@ -226,10 +225,10 @@ function setPoint(tempPoints, maker, step) {
         if (isInWarningZone || isPhysicalHit) {
           const collisionData = { maker: pedMkr };
           if (isInWarningZone) {
-            collisionData.collisionTime = carTime; // 橢圓碰撞時間
+            collisionData.collisionTime = carTime;
           }
           if (isPhysicalHit) {
-            collisionData.physicalCollisionTime = carTime; // 物理碰撞時間
+            collisionData.physicalCollisionTime = carTime;
           }
           carPoint.pedObjs.push(collisionData);
         }
@@ -290,7 +289,6 @@ function simulateBrakingSteps(car, step, reactionTime_s, brakeAccel_mps2) {
   return newBrakingSteps;
 }
 
-// --- 修正後的 preShowTrajectory ---
 function preShowTrajectory() {
   let tempPoints = new Map();
   let collisions = [];
@@ -302,7 +300,7 @@ function preShowTrajectory() {
   for (let step = 0; step < stepsForPrediction.length; step++) {
     const marker = showTrajectory(car, step, car.color);
     stepsForPrediction[step].maker = marker;
-    setPoint(tempPoints, marker, step);
+    setTrajectoryMaps(tempPoints, marker, step);
   }
 
   for (let ped of peds) {
@@ -310,16 +308,14 @@ function preShowTrajectory() {
     for (let step = 0; step < ped.steps.length; step++) {
       const marker = showTrajectory(ped, step, ped.color);
       ped.steps[step].maker = marker;
-      setPoint(tempPoints, marker, step);
+      setTrajectoryMaps(tempPoints, marker, step);
     }
 
     for (let [timeKey, pointInfo] of tempPoints) {
       if (pointInfo.pedObjs.length > 0) {
         pointInfo.pedObjs.forEach((pedObj) => {
           if (pedObj.maker.obj.name === ped.name) {
-            // 檢查並記錄兩種碰撞時間
             if (pedObj.collisionTime && !ped.collisionTime) {
-              // 只記錄第一次
               const time = parseFloat(pedObj.collisionTime).toFixed(1);
               ped.collisionTime = time;
               collisions.push({
@@ -332,7 +328,6 @@ function preShowTrajectory() {
               isCollisionDetectedForPed = true;
             }
             if (pedObj.physicalCollisionTime && !ped.physicalCollisionTime) {
-              // 只記錄第一次
               const time = parseFloat(pedObj.physicalCollisionTime).toFixed(1);
               ped.physicalCollisionTime = time;
               collisions.push({
@@ -356,12 +351,10 @@ function preShowTrajectory() {
   }
 
   if (collisions.length > 0) {
-    // 按時間排序，找出最早發生的事件
     collisions.sort((a, b) => a.time - b.time);
     const firstCollision = collisions[0];
     const timeToCollision = parseFloat(firstCollision.time);
 
-    // 根據碰撞類型顯示不同訊息
     textElement.innerHTML = `預測約 ${timeToCollision} 秒後，${firstCollision.pedName} 將發生 <strong style="color: red;">[${firstCollision.type}]</strong>！`;
 
     const collisionPed = firstCollision.pedObj;
@@ -459,6 +452,18 @@ function removePlayObjects() {
   pedsPlayModels = [];
 }
 
+function playDisabledButton() {
+  document.querySelector("#start").disabled = true;
+  document.querySelector("#resetStep").disabled = true;
+  document.querySelector("#loading-modal").disabled = true;
+}
+
+function playEnabledButton() {
+  document.querySelector("#start").disabled = false;
+  document.querySelector("#resetStep").disabled = false;
+  document.querySelector("#loading-modal").disabled = false;
+}
+
 function play() {
   elapsedTime = 0;
   isBrakingActive = false;
@@ -472,7 +477,6 @@ function play() {
 
   peds.forEach((p) => {
     p.isWarned = false;
-    // Keep ped.collisionTime and ped.physicalCollisionTime from pre-simulation
   });
 
   removePlayObjects();
@@ -483,6 +487,7 @@ function play() {
 
   startTime = performance.now();
   isPlaying = true;
+  playDisabledButton();
 }
 
 function setObjectColor(object, color) {
@@ -581,6 +586,7 @@ function animate(time) {
         setObjectColor(carModel, 0xff0000);
         setObjectColor(carBodyPlaceholder, 0xff0000);
         isPlaying = false;
+        playEnabledButton();
         return;
       }
 
@@ -640,6 +646,7 @@ function animate(time) {
       speedElement.value = 0;
       updateSpeed(0);
       isPlaying = false;
+      playEnabledButton();
       if (audio) {
         audio.pause();
         audio.currentTime = 0;
@@ -701,6 +708,7 @@ document.querySelector("#perspective").addEventListener("change", (e) => {
 });
 function restart() {
   isPlaying = false;
+  playEnabledButton();
   isBrakingActive = false;
   startTime = null;
   warningElement.innerHTML = "";
@@ -708,13 +716,11 @@ function restart() {
   brakeIndicator.style.display = "none";
   if (audio) {
     audio.pause();
-    audio.currentTime = 0; // 將播放時間重設到開頭
+    audio.currentTime = 0;
   }
 
-  // 取消所有正在朗讀或排隊中的語音
   window.speechSynthesis.cancel();
 
-  // 在重置時，清除舊的碰撞時間預測
   peds.forEach((p) => {
     p.isWarned = false;
     delete p.collisionTime;
@@ -759,6 +765,11 @@ function updatePedestrianPathFromPanel() {
   clearMaker();
   preShowTrajectory();
 }
+
+document.getElementById("loading-modal").addEventListener("click", () => {
+  ped1.modelFun = loadModelOBJ("person");
+  car.modelFun = loadModelOBJ("car");
+});
 document
   .getElementById("pedestrian-settings-panel")
   .addEventListener("input", updatePedestrianPathFromPanel);

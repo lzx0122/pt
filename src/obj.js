@@ -13,16 +13,7 @@ export class obj {
   endPoint;
   model = null;
 
-  constructor({
-    name,
-    color,
-    steps,
-    startPoint,
-    endPoint,
-    speed,
-    entitySize,
-    modelFun,
-  }) {
+  constructor({ name, color, steps, startPoint, endPoint, speed, entitySize }) {
     this.name = name;
     this.color = color;
     this.startPoint = startPoint;
@@ -32,12 +23,6 @@ export class obj {
     this.steps =
       steps ||
       calcSteps({ startPoint, endPoint, speed, isRandom: name != "car" });
-
-    if (modelFun) {
-      modelFun.then((model) => {
-        this.model = model;
-      });
-    }
   }
 
   resetSteps() {
@@ -96,5 +81,16 @@ export class obj {
   }
   get speed() {
     return this._speed;
+  }
+
+  /**
+   * @param {Promise<any>} v
+   */
+  set modelFun(v) {
+    if (v) {
+      v.then((model) => {
+        this.model = model;
+      });
+    }
   }
 }
